@@ -1,0 +1,173 @@
+/*
+Example for MPU_9DOF Click
+
+    Date          : Aug 2018.
+    Author        : Nenad Filipovic
+
+Test configuration PIC32 :
+    
+    MCU                : P32MX795F512L
+    Dev. Board         : EasyPIC Fusion v7
+    PIC32 Compiler ver : v4.0.0.0
+
+---
+
+Description :
+
+The application is composed of three sections :
+
+- System Initialization - Initializes I2C, set INT pin as input.
+- Application Initialization - Initialization driver enable's - I2C, initialize MPU-9150 XL G & MPU-9150 MAG and start write log.
+- Application Task - (code snippet) This is a example which demonstrates the use of MPU 9DOF Click board.
+     Measured accel, gyro and magnetometar coordinates values ( X, Y, Z )
+     and temperature value in degrees celsius [ °C ] are being sent to the uart where you can track their changes.
+     All data logs on usb uart for aproximetly every 1 sec.
+
+Additional Functions :
+
+- UART
+- Conversions
+
+*/
+
+#include "Click_MPU_9DOF_types.h"
+#include "Click_MPU_9DOF_config.h"
+
+
+int16_t accelX;
+int16_t accelY;
+int16_t accelZ;
+int16_t gyroX;
+int16_t gyroY;
+int16_t gyroZ;
+int16_t magX;
+int16_t magY;
+int16_t magZ;
+float temperature;
+char logText[ 15 ] = {0};
+
+void systemInit()
+{
+    mikrobus_gpioInit( _MIKROBUS1, _MIKROBUS_INT_PIN, _GPIO_INPUT );
+    mikrobus_gpioInit( _MIKROBUS1, _MIKROBUS_RST_PIN, _GPIO_OUTPUT );
+    mikrobus_i2cInit( _MIKROBUS1, &_MPU9DOF_I2C_CFG[0] );
+    mikrobus_logInit( _MIKROBUS2, 9600 );
+    Delay_100ms();
+}
+
+void applicationInit()
+{
+    mpu9dof_i2cDriverInit( (T_MPU9DOF_P)&_MIKROBUS1_GPIO, (T_MPU9DOF_P)&_MIKROBUS1_I2C, _MPU9DOF_XLG_I2C_ADDR_1 );
+    Delay_10ms();
+
+    /* Chip reset */
+    mpu9dof_writeData( _MPU9DOF_PWR_MGMT_1, _MPU9DOF_BIT_H_RESET);
+    Delay_10ms();
+
+    /* Initialize accel & gyro */
+    mpu9dof_writeData( _MPU9DOF_SMPLRT_DIV,_MPU9DOF_DEFAULT );
+    Delay_10ms();
+    mpu9dof_writeData( _MPU9DOF_CONFIG, _MPU9DOF_BITS_DLPF_CFG_42HZ);
+    Delay_10ms();
+    mpu9dof_writeData( _MPU9DOF_GYRO_CONFIG, _MPU9DOF_BITS_FS_1000DPS);
+    Delay_10ms();
+    mpu9dof_writeData( _MPU9DOF_ACCEL_CONFIG, _MPU9DOF_BITS_AFSL_SEL_8G);
+    Delay_10ms();
+    // Disable FIFOs
+    mpu9dof_writeData( _MPU9DOF_FIFO_EN , _MPU9DOF_BIT_FIFO_DIS);
+    Delay_10ms();
+    // Bypass mode enabled
+    mpu9dof_writeData( _MPU9DOF_INT_PIN_CFG , _MPU9DOF_BIT_INT_PIN_CFG);
+    Delay_10ms();
+    // Disable all interrupts
+    mpu9dof_writeData( _MPU9DOF_INT_ENABLE , _MPU9DOF_DEFAULT);
+    Delay_10ms();
+    // No FIFO and no I2C slaves
+    mpu9dof_writeData( _MPU9DOF_USER_CTRL , _MPU9DOF_DEFAULT);
+    Delay_10ms();
+    // No power management, internal clock source
+    mpu9dof_writeData( _MPU9DOF_PWR_MGMT_1, _MPU9DOF_DEFAULT);
+    Delay_10ms();
+    mpu9dof_writeData( _MPU9DOF_PWR_MGMT_2, _MPU9DOF_DEFAULT);
+    Delay_10ms();
+
+    /* Initialize magnetometer */
+    mpu9dof_writeDataMag( _MPU9DOF_MAG_CNTL, _MPU9DOF_BIT_RAW_RDY_EN);
+    Delay_10ms();
+
+    mikrobus_logWrite("----------------------------------------------------------------------------", _LOG_LINE);
+    mikrobus_logWrite("|     Accel       |       Gyro        |       Mag        |       Temp. °C  |",_LOG_LINE);
+    mikrobus_logWrite("----------------------------------------------------------------------------", _LOG_LINE);
+}
+
+void applicationTask()
+{
+    mpu9dof_readAccel( &accelX, &accelY, &accelZ );
+    Delay_10ms();
+    mpu9dof_readGyro(  &gyroX,  &gyroY, &gyroZ );
+    Delay_10ms();
+    mpu9dof_readMag(  &magX,  &magY, &magZ );
+    Delay_10ms();
+    temperature = mpu9dof_readTemperature();
+    Delay_10ms();
+
+    mikrobus_logWrite( " Accel X :", _LOG_TEXT );
+    IntToStr( accelX, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "  |  ", _LOG_TEXT );
+    mikrobus_logWrite( " Gyro X :", _LOG_TEXT );
+    IntToStr( gyroX, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "  |  ", _LOG_TEXT );
+    mikrobus_logWrite( " Mag X :", _LOG_TEXT );
+    IntToStr( magX, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "  *", _LOG_TEXT );
+    mikrobus_logWrite( "*****************", _LOG_LINE );
+
+    mikrobus_logWrite( " Accel Y :", _LOG_TEXT );
+    IntToStr( accelY, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "  |  ", _LOG_TEXT );
+    mikrobus_logWrite( " Gyro Y :", _LOG_TEXT );
+    IntToStr( gyroY, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "  |  ", _LOG_TEXT );
+    mikrobus_logWrite( " Mag Y :", _LOG_TEXT );
+    IntToStr( magY, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "  *  ", _LOG_TEXT );
+    mikrobus_logWrite( "Temp.:", _LOG_TEXT );
+    IntToStr( temperature, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "° *  ", _LOG_LINE );
+
+    mikrobus_logWrite( " Accel Z :", _LOG_TEXT );
+    IntToStr( accelZ, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "  |  ", _LOG_TEXT );
+    mikrobus_logWrite( " Gyro Z :", _LOG_TEXT );
+    IntToStr( gyroZ, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "  |  ", _LOG_TEXT );
+    mikrobus_logWrite( " Mag Z :", _LOG_TEXT );
+    IntToStr( magZ, logText );
+    mikrobus_logWrite( logText, _LOG_TEXT );
+    mikrobus_logWrite( "  *", _LOG_TEXT );
+    mikrobus_logWrite( "*****************", _LOG_LINE );
+
+    mikrobus_logWrite("----------------------------------------------------------------------------", _LOG_LINE);
+
+    Delay_1sec();
+}
+
+void main()
+{
+    systemInit();
+    applicationInit();
+
+    while (1)
+    {
+            applicationTask();
+    }
+}
